@@ -1,0 +1,82 @@
+# Smithery.ai 配置
+startCommand:
+  type: stdio
+  configSchema:
+    type: object
+    properties:
+      host:
+        type: string
+        description: "连接的目标服务器地址"
+      port:
+        type: integer
+        description: "SSH端口号"
+        default: 22
+      username:
+        type: string
+        description: "登录用户名"
+      password:
+        type: string
+        description: "登录密码（与keyFile二选一）"
+      keyFile:
+        type: string
+        description: "私钥文件路径（与password二选一）"
+      command:
+        type: string
+        description: "要执行的命令，例如 'ls -la'"
+      operation:
+        type: string
+        enum: ["cmd", "upload", "download"]
+        description: "操作类型：执行命令、上传文件或下载文件"
+        default: "cmd"
+      localPath:
+        type: string
+        description: "上传操作的本地文件路径或下载操作的目标路径"
+      remotePath:
+        type: string
+        description: "上传操作的目标路径或下载操作的源文件路径"
+    required:
+      - host
+      - username
+      - operation
+  commandFunction: |-
+    (config) => {
+      // 构建命令行参数
+      let args = [
+        "python",
+        "/app/mcp_service.py",
+        "--host", config.host,
+        "--username", config.username
+      ];
+      
+      // 添加可选参数
+      if (config.port) {
+        args.push("--port", config.port.toString());
+      }
+      
+      if (config.password) {
+        args.push("--password", config.password);
+      }
+      
+      if (config.keyFile) {
+        args.push("--key-file", config.keyFile);
+      }
+      
+      // 添加操作类型和相关参数
+      args.push(config.operation);
+      
+      if (config.operation === "cmd" && config.command) {
+        args.push(config.command);
+      } else if (config.operation === "upload" && config.localPath && config.remotePath) {
+        args.push(config.localPath, config.remotePath);
+      } else if (config.operation === "download" && config.remotePath && config.localPath) {
+        args.push(config.remotePath, config.localPath);
+      }
+      
+      return {
+        command: args[0],
+        args: args.slice(1),
+        env: {
+          "PYTHONUNBUFFERED": "1"
+        }
+      };
+    } 
